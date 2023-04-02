@@ -1,0 +1,31 @@
+Proposal comments:
+
+I like the sound of your project.  I have only a few things to say.
+- It seems like words are going to be an important part of the analysis here.
+  Take a look at the text slides to get some other ideas.
+- There's no problem with making revenue your response variable.  Out of
+  curiosity, I was also wondering if you could predict genre based on
+  covariates.  I'm not sure how revenue and genre are related, but I suppose you
+  will be able to figure that out from the data you have.
+- One last thing: I don't know anything about this, but it seems to me that the
+  movie business is "nonstationary" in some way.  That is, even after you adjust
+  for inflation, you may still find that today's blockbusters make more real
+  dollars than in the old days.  Is there some way that you can find evidence of
+  this happening?  Are movies made differently over time?  I mean, clearly they
+  are, but can you find, say, features of an Avengers movie that make it more
+  profitable than a Star Wars movie from the early 80s?
+- Finally, I haven't looked too much at the data but I imagine that it includes
+  lots of different kinds of movies.  You might have clearer results if you
+  limit the dataset to films that are, for example, above some revenue
+  threshold for inclusion.  But maybe not, I'm just conjecturing that a lot of
+  small movies could muddy the signal coming from big movies.  Then again, with
+  a careful look at revenues, you might be able to look at features that make
+  something either a hit or not, in which case you wouldn't want to throw
+  anything out.
+
+Feedback Date
+Mar 22, 2023 5:01 PM
+Folder
+Final project dropboxes (424)
+Group Category
+Final project groups (424)
