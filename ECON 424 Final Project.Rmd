@@ -40,12 +40,15 @@ data <- read.csv("./movies.csv")
 head(data)
 ```
 
-Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. There might also be duplicates in the data, so we need to remove duplicates as well.
+Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. We are only keeping released movies above 40 minutes as we are not including short movies in the data. There might also be duplicates in the data, so we need to remove duplicates as well.
 
 ```{r}
-clean_data <- data[data$revenue > 0, !names(data) %in% c("overview", "popularity","vote_average","vote_count","poster_path","backdrop_path","recommendations")]
-clean_data <- unique(clean_data)
+clean_data <- data[data$revenue > 0 & data$status == "Released" & data$runtime > 40, !names(data) %in% c("overview", "popularity","status", "vote_average","vote_count","poster_path","backdrop_path","recommendations")]
+#clean_data <- unique(clean_data)
+clean_data <- clean_data[!is.na(clean_data$id),]
+row.names(clean_data) <- NULL
 head(clean_data)
+write.csv(clean_data, file="./movies_filtered.csv", row.names = FALSE)
 clean_data <- clean_data[-c(274407, 306750, 299843, 617509, 620515, 622196),] # duplicate IDs with slightly different data
 # IDs : 587989, 598895, 598900, 598906, 598914, 599270
 
@@ -56,12 +59,6 @@ hist(log(clean_data$revenue),
 ```
 
 Then, we will do the analysis to feature films, which means that we need to remove all movies that has runtime of 40 minutes or less. This is decided as the Academy of Motion Picture Arts and Sciences defines a short film as "an original motion picture that has a running time of 40 minutes or less, including all credits".
-
-```{r}
-clean_data <- clean_data[clean_data$runtime > 40,]
-row.names(clean_data) <- NULL
-head(clean_data)
-```
 
 ## Methods
 
