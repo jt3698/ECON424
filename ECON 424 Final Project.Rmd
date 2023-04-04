@@ -82,6 +82,18 @@ hist(log(clean_data$revenue_adjusted),
 n <- length(clean_data[,1])
 ```
 
+```{r, fig.height=4, fig.width=10}
+par(mfrow = c(1,2))
+plot(as.Date(clean_data$release_date), log(clean_data$revenue), 
+     xlim = c(as.Date("1910-01-01"), as.Date("2025-01-01")), 
+     col="blue", lwd = 0.5, xlab = "Release Date", ylab = "Revenue",
+     main = "Release Date vs. Revenue")
+plot(as.Date(clean_data$release_date), log(clean_data$revenue_adjusted), 
+     xlim = c(as.Date("1910-01-01"), as.Date("2025-01-01")), 
+     col="blue", lwd = 0.5, xlab = "Release Date", ylab = "Adjusted Revenue",
+     main = "Release Date vs. Adjusted Revenue")
+```
+
 ## Methods
 
 To answer the questions above, we will be doing these methods:
@@ -93,6 +105,12 @@ library(SnowballC)
 
 to_another <- content_transformer(function(x, y, z) gsub(y, z, x))
 
+add_pre <- function(x, pre) {
+  ifelse(!is.na(x) & x != "" & nchar(x) > 0 & x != " ", return(paste(pre, x, sep="")), return(x))
+}
+
+add_prefix <- content_transformer(add_pre)
+
 #### PRODUCTION COMPANIES
 prod_comp <- clean_data$production_companies
 docs <- Corpus(VectorSource(prod_comp))
@@ -100,6 +118,10 @@ docs <- Corpus(VectorSource(prod_comp))
 docs <- tm_map(docs, to_another, "Metro-Goldwyn-Mayer", "Metro_Goldwyn_Mayer")
 docs <- tm_map(docs, to_another, " ", "_")
 docs <- tm_map(docs, to_another, "-", " ")
+docs <- tm_map(docs, stripWhitespace)
+# adding prefix p$ for production_companies
+docs <- tm_map(docs, add_prefix, "p$")
+docs <- tm_map(docs, to_another, " ", " p$")
 dtm <- DocumentTermMatrix(docs)
 
 #get production companies in least 50 movies
@@ -113,6 +135,10 @@ genres <- clean_data$genres
 docs2 <- Corpus(VectorSource(genres))
 docs2 <- tm_map(docs2, to_another, " ", "_")
 docs2 <- tm_map(docs2, to_another, "-", " ")
+docs2 <- tm_map(docs2, stripWhitespace)
+# adding prefix g$ for genres
+docs2 <- tm_map(docs2, add_prefix, "g$")
+docs2 <- tm_map(docs2, to_another, " ", " g$")
 dtm2 <- DocumentTermMatrix(docs2)
 
 #get all genres
@@ -126,6 +152,10 @@ casts <- clean_data$credits
 docs3 <- Corpus(VectorSource(casts))
 docs3 <- tm_map(docs3, to_another, " ", "_")
 docs3 <- tm_map(docs3, to_another, "-", " ")
+docs3 <- tm_map(docs3, stripWhitespace)
+# adding prefix c$ for casts
+docs3 <- tm_map(docs3, add_prefix, "c$")
+docs3 <- tm_map(docs3, to_another, " ", " c$")
 dtm3 <- DocumentTermMatrix(docs3)
 
 #get all casts in at least 50 movies
@@ -142,6 +172,10 @@ keywords <- clean_data$keywords
 docs4 <- Corpus(VectorSource(keywords))
 docs4 <- tm_map(docs4, to_another, " ", "_")
 docs4 <- tm_map(docs4, to_another, "-", " ")
+docs4 <- tm_map(docs4, stripWhitespace)
+# adding prefix k$ for keywords
+docs4 <- tm_map(docs4, add_prefix, "k$")
+docs4 <- tm_map(docs4, to_another, " ", " k$")
 dtm4 <- DocumentTermMatrix(docs4)
 
 #get all keywords in at least 50 movies
@@ -150,13 +184,56 @@ key_keys
 ```
 
 ```{r}
+#### ORIGINAL LANGUAGE
+og_lng <- clean_data$original_language
+docs5 <- Corpus(VectorSource(og_lng))
+# adding prefix l$ for language
+docs5 <- tm_map(docs5, add_prefix, "l$")
+docs5 <- tm_map(docs5, to_another, " ", " l$")
+dtm5 <- DocumentTermMatrix(docs5)
 
-
+#get all languages in at least 50 movies
+key_lang <- sort(findFreqTerms(dtm5, 50))
+key_lang
 ```
 
-2. Use parameter reduction and regression via LASSO to get a certain number of covariates and see which covariates impact the most to the revenue.
+```{r}
+X <- cbind(dtm[, key_pc], dtm2[, key_gen], dtm3[, key_cast], dtm4[, key_keys], dtm5[, key_lang])
+y <- log(clean_data$revenue)
+library(glmnet)
+set.seed(424)
+model1 <- cv.glmnet(cbind(as.matrix(X), budget = log(clean_data$budget)), y)
+coef1 <- coef(model1, s = "lambda.min")
+sort(coef1[,1], decreasing = TRUE)
+```
 
-3. Get the genres, actors, and keywords from their respective columns (each separated by “-”), filter these words by number of appearance more than a certain number, and then use these words as covariates in regression.
+Take 10 highest coef and 10 lowest coef, then do interactions on them.
+
+```{r}
+coef_sort <- sort(coef1[,1], decreasing = TRUE)[-1]
+coef_head <- head(coef_sort, 10)
+coef_tail <- tail(coef_sort, 10)
+int_vars <- c("p$screen_gems", "p$walt_disney_pictures", "p$paramount", "p$new_line_cinema", "p$columbia_pictures", "p$touchstone_pictures", "p$universal_pictures", "p$20th_century_fox", "p$tristar_pictures", "p$hollywood_pictures", "k$film_noir", "l$fa", "k$pro_wrestling", "l$ur", "k$lgbt")
+
+inact <- c()
+inact_name <- c()
+for(i in int_vars){
+  for (j in int_vars){
+    if (i < j){
+      v = rep(0, n)
+      var_name = paste(c(i,j), sep = ".")
+      for(k in 1:n){
+        v[k] = as.numeric(a[k]) * as.numeric(b[k])
+      }
+      inact <- cbind(inact, v)
+      inact_name <- c(inact_name, var_name)
+    }
+  }
+}
+
+df_inact = data.frame(inact, colnames = inact_name)
+```
+
 
 4. Get the words from step 3 and create interactions between them. Include these interactions as covariates in the regression.
 
