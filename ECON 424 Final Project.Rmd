@@ -267,13 +267,12 @@ df_list <- split(clean_data, clean_data$decades)
 
 ```{r}
 
-sub_key_pc_all <- c()
+coefs <- c()
 
 for (df in df_list){
   #### PRODUCTION COMPANIES
   sub_prod_comp <- df$production_companies
-  spc <- paste(sub_prod_comp, collapse="-")
-  sub_docs <- Corpus(VectorSource(spc))
+  sub_docs <- Corpus(VectorSource(sub_prod_comp))
   # Remove "-" from the name since it is the splitter symbol of the data
   sub_docs <- tm_map(sub_docs, to_another, "Metro-Goldwyn-Mayer", "Metro_Goldwyn_Mayer")
   sub_docs <- tm_map(sub_docs, to_another, "no_production_companies", "")
@@ -286,13 +285,12 @@ for (df in df_list){
   sub_dtm <- DocumentTermMatrix(sub_docs)
 
   #get top 10 production companies
-  sub_key_pc <- sort(findMostFreqTerms(sub_dtm, 10))
+  sub_key_pc <- findMostFreqTerms(sub_dtm, 10, INDEX = rep(1, each = length(df[,1])))
   #print(sub_key_pc)
   
   #### GENRES
   sub_genres <- df$genres
-  sg <- paste(sub_genres, collapse="-")
-  sub_docs2 <- Corpus(VectorSource(sg))
+  sub_docs2 <- Corpus(VectorSource(sub_genres))
   sub_docs2 <- tm_map(sub_docs2, to_another, " ", "_")
   sub_docs2 <- tm_map(sub_docs2, to_another, "-", " ")
   sub_docs2 <- tm_map(sub_docs2, stripWhitespace)
@@ -302,13 +300,12 @@ for (df in df_list){
   sub_dtm2 <- DocumentTermMatrix(sub_docs2)
 
   #get top 10 genres
-  sub_key_gen <- sort(findMostFreqTerms(sub_dtm2, 10))
+  sub_key_gen <- findMostFreqTerms(sub_dtm2, 10, INDEX = rep(1, each = length(df[,1])))
   #sub_key_gen
   
   #### CREDITS
   sub_casts <- df$credits
-  sc <- paste(sub_casts, collapse="-")
-  sub_docs3 <- Corpus(VectorSource(sc))
+  sub_docs3 <- Corpus(VectorSource(sub_casts))
   sub_docs3 <- tm_map(sub_docs3, to_another, " ", "_")
   sub_docs3 <- tm_map(sub_docs3, to_another, "-", " ")
   sub_docs3 <- tm_map(sub_docs3, stripWhitespace)
@@ -318,16 +315,11 @@ for (df in df_list){
   sub_dtm3 <- DocumentTermMatrix(sub_docs3)
 
   #get top 10 casts
-  sub_key_cast <- sort(findMostFreqTerms(sub_dtm3, 10))
-
-  #remove single-word names
-  sub_key_cast <- sub_key_cast[grepl('_', sub_key_cast)]
-  #sub_key_cast
+  sub_key_cast <- findMostFreqTerms(sub_dtm3, 10, INDEX = rep(1, each = length(df[,1])))
   
   #### KEYWORDS
   sub_keywords <- df$keywords
-  sk <- paste(sub_keywords, collapse="-")
-  sub_docs4 <- Corpus(VectorSource(sk))
+  sub_docs4 <- Corpus(VectorSource(sub_keywords))
   sub_docs4 <- tm_map(sub_docs4, to_another, " ", "_")
   sub_docs4 <- tm_map(sub_docs4, to_another, "-", " ")
   sub_docs4 <- tm_map(sub_docs4, stripWhitespace)
@@ -336,31 +328,35 @@ for (df in df_list){
   sub_docs4 <- tm_map(sub_docs4, to_another, " ", " k$")
   sub_dtm4 <- DocumentTermMatrix(sub_docs4)
 
-  #gettop 10 keywords
-  sub_key_keys <- sort(findMostFreqTerms(sub_dtm4, 10))
+  #get top 10 keywords
+  sub_key_keys <- findMostFreqTerms(sub_dtm4, 10, INDEX = rep(1, each = length(df[,1])))
   #sub_key_keys
   
   #### ORIGINAL LANGUAGE
   sub_og_lng <- df$original_language
-  sol <- paste(sub_og_lng, collapsse = "-")
-  sub_docs5 <- Corpus(VectorSource(sol))
+  sub_docs5 <- Corpus(VectorSource(sub_og_lng))
   # adding prefix l$ for language
   sub_docs5 <- tm_map(sub_docs5, add_prefix, "l$")
   sub_docs5 <- tm_map(sub_docs5, to_another, " ", " l$")
   sub_dtm5 <- DocumentTermMatrix(sub_docs5)
 
   #get all languages in at least 50 movies
-  sub_key_lang <- sort(findMostFreqTerms(sub_dtm5, 10))
+  sub_key_lang <- findMostFreqTerms(sub_dtm5, 10, INDEX = rep(1, each = length(df[,1])))
   #sub_key_lang
   
-  X <- cbind(dtm[, key_pc], dtm2[, key_gen], dtm3[, key_cast], dtm4[, key_keys], dtm5[, key_lang])
-  y <- log(clean_data$revenue)
-  library(glmnet)
-  set.seed(424)
-  model1 <- cv.glmnet(cbind(as.matrix(X), budget = log(clean_data$budget)), y)
-  coef1 <- coef(model1, s = "lambda.min")
-  sort(coef1[,1], decreasing = TRUE)
+  sub_X <- cbind(sub_dtm[, names(sub_key_pc[[1]])], sub_dtm2[, names(sub_key_gen[[1]])], sub_dtm3[, names(sub_key_cast[[1]])], sub_dtm4[, names(sub_key_keys[[1]])], sub_dtm5[, names(sub_key_lang[[1]])])
+  sub_y <- log(df$revenue)
+  sub_model1 <- cv.glmnet(cbind(as.matrix(sub_X), budget = log(df$budget)), sub_y)
+  sub_coef1 <- coef(sub_model1, s = "lambda.min")
+  sub_coef_sort <- sort(sub_coef1[which(sub_coef1 != 0),1], decreasing = TRUE)
+  coefs <- c(coefs, sub_coef_sort)
+  
+  print(df$decades[1])
+  print(sub_coef_sort)
+  
 }
+
+#coefs
 
 ```
 
