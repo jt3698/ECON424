@@ -31,7 +31,7 @@ For this project, these are the questions that we will be answering:
 
 ## Data
 
-In this project, we will be using the Movies dataset from Kaggle: https://www.kaggle.com/datasets/akshaypawar7/millions-of-movies?resource=download. We downloaded this dataset on March 20, 2023 and continue to work with it locally. This dataset consists of around 723 thousand rows of movies, with their descriptions and details separated into columns. The response variable that we are focusing on from this dataset is the “revenue” column, which shows us the revenue of the movie. The covariates that might be useful from this dataset includes: date published, budget, genres, casts, keywords, and runtime.
+In this project, we will be using the Movies dataset from Kaggle: https://www.kaggle.com/datasets/akshaypawar7/millions-of-movies?resource=download. We downloaded this dataset on April 2, 2023 on 2pm EST and continue to work with it locally. This dataset consists of around 723 thousand rows of movies, with their descriptions and details separated into columns. The response variable that we are focusing on from this dataset is the “revenue” column, which shows us the revenue of the movie. The covariates that might be useful from this dataset includes: date published, budget, genres, casts, keywords, and runtime.
 
 Here is the first few rows of the data:
 
@@ -43,8 +43,9 @@ head(data)
 Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. There might also be duplicates in the data, so we need to remove duplicates as well.
 
 ```{r}
-clean_data <- data[data$revenue > 0,-c(6,14,15,18,19,20)]
+clean_data <- data[data$revenue > 0, !names(data) %in% c("overview", "popularity","vote_average","vote_count","poster_path","backdrop_path","recommendations")]
 clean_data <- unique(clean_data)
+head(clean_data)
 clean_data <- clean_data[-c(274407, 306750, 299843, 617509, 620515, 622196),] # duplicate IDs with slightly different data
 # IDs : 587989, 598895, 598900, 598906, 598914, 599270
 
@@ -52,6 +53,14 @@ hist(log(clean_data$revenue),
      breaks = quantile(log(clean_data$revenue), p = seq(0,1 , length.out = 21)), 
      freq = TRUE, xlab = "log(revenue)", main = "Histogram of log(revenue) - 5% quantile for each bin")
 
+```
+
+Then, we will do the analysis to feature films, which means that we need to remove all movies that has runtime of 40 minutes or less. This is decided as the Academy of Motion Picture Arts and Sciences defines a short film as "an original motion picture that has a running time of 40 minutes or less, including all credits".
+
+```{r}
+clean_data <- clean_data[clean_data$runtime > 40,]
+row.names(clean_data) <- NULL
+head(clean_data)
 ```
 
 ## Methods
