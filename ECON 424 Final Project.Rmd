@@ -40,19 +40,21 @@ data <- read.csv("./movies.csv")
 head(data)
 ```
 
-Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. We are only keeping released movies above 40 minutes as we are not including short movies in the data. This is based on the definition from the Academy of Motion Picture Arts and Sciences, where they define a short film as "an original motion picture that has a running time of 40 minutes or less, including all credits". We also do not include the movies with runtime of value 999. There might also be duplicates in the data, so we need to remove duplicates as well.
+Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. We are only keeping released movies above 40 minutes as we are not including short movies in the data. This is based on the definition from the Academy of Motion Picture Arts and Sciences, where they define a short film as "an original motion picture that has a running time of 40 minutes or less, including all credits". We also do not include the movies with runtime of value 999. There might also be duplicates in the data, so we need to remove duplicates as well. Since people can add random movies into this database, we try as best as we can to filter those out. To make sure that a movie is legitimate, we filter the movies that do not have any genres, production companies, and credits (all three are empty values).
 
 ```{r}
 # Only movies that has revenue, is released, and more than 40 minutes long
-clean_data <- data[data$revenue > 0 & data$status == "Released" & data$runtime > 40 & data$runtime != 999, !names(data) %in% c("overview", "popularity","status", "vote_average","vote_count","poster_path","backdrop_path","recommendations")]
+# Also remove if runtime = 999 and remove the movies with missing genres, production companies, and credits
+clean_data <- data[data$revenue > 0 & data$status == "Released" & data$runtime > 40 & data$runtime != 999 & !(data$genres == "" & data$production_companies == "" & data$credits == ""), !names(data) %in% c("overview", "popularity","status", "tagline", "vote_average","vote_count","poster_path","backdrop_path","recommendations")]
 
-# removing NAs in ID column
+
+# removing empty ID rows
 clean_data <- clean_data[!is.na(clean_data$id),]
 
 #resetting row.names
 row.names(clean_data) <- NULL
 
-#remove duplicate datas
+#remove duplicate data
 clean_data <- clean_data[!duplicated(clean_data[,1]),]
 
 write.csv(clean_data, file="./movies_filtered.csv", row.names = FALSE)
@@ -63,16 +65,94 @@ head(clean_data)
 
 hist(log(clean_data$revenue), 
      breaks = quantile(log(clean_data$revenue), p = seq(0,1 , length.out = 21)), 
-     freq = TRUE, xlab = "log(revenue)", main = "Histogram of log(revenue) - 5% quantile for each bin")
+     freq = FALSE, xlab = "log(revenue)", main = "Histogram of log(revenue) - 5% quantile for each bin")
 
 ```
 
+We took this data and use a Python API to calculate the adjusted revenues by adding inflation factors. We calculated all the revenues inflated to April 3, 2023 and include them in the data as a new column called "revenue_adjusted". The data that do not have release_date will have their adjusted revenue be the same as their revenue.
+
+```{r}
+clean_data <- read.csv("./movies_adjusted.csv")
+head(clean_data)
+
+hist(log(clean_data$revenue_adjusted), 
+     breaks = quantile(log(clean_data$revenue_adjusted), p = seq(0,1 , length.out = 21)), 
+     freq = FALSE, xlab = "log(revenue_adjusted)", main = "Histogram of log(revenue_adjusted) - 5% quantile for each bin")
+
+n <- length(clean_data[,1])
+```
 
 ## Methods
 
 To answer the questions above, we will be doing these methods:
 
+```{r}
+library(pdftools)
+library(tm)
+library(SnowballC)
 
+to_another <- content_transformer(function(x, y, z) gsub(y, z, x))
+
+#### PRODUCTION COMPANIES
+prod_comp <- clean_data$production_companies
+docs <- Corpus(VectorSource(prod_comp))
+# Remove "-" from the name since it is the splitter symbol of the data
+docs <- tm_map(docs, to_another, "Metro-Goldwyn-Mayer", "Metro_Goldwyn_Mayer")
+docs <- tm_map(docs, to_another, " ", "_")
+docs <- tm_map(docs, to_another, "-", " ")
+dtm <- DocumentTermMatrix(docs)
+
+#get production companies in least 50 movies
+key_pc <- sort(findFreqTerms(dtm, 50))
+key_pc
+```
+
+```{r}
+#### GENRES
+genres <- clean_data$genres
+docs2 <- Corpus(VectorSource(genres))
+docs2 <- tm_map(docs2, to_another, " ", "_")
+docs2 <- tm_map(docs2, to_another, "-", " ")
+dtm2 <- DocumentTermMatrix(docs2)
+
+#get all genres
+key_gen <- sort(findFreqTerms(dtm2, 0))
+key_gen
+```
+
+```{r}
+#### CREDITS
+casts <- clean_data$credits
+docs3 <- Corpus(VectorSource(casts))
+docs3 <- tm_map(docs3, to_another, " ", "_")
+docs3 <- tm_map(docs3, to_another, "-", " ")
+dtm3 <- DocumentTermMatrix(docs3)
+
+#get all casts in at least 50 movies
+key_cast <- sort(findFreqTerms(dtm3, 50))
+
+#remove single-word names
+key_cast <- key_cast[grepl('_', key_cast)]
+key_cast
+```
+
+```{r}
+#### KEYWORDS
+keywords <- clean_data$keywords
+docs4 <- Corpus(VectorSource(keywords))
+docs4 <- tm_map(docs4, to_another, " ", "_")
+docs4 <- tm_map(docs4, to_another, "-", " ")
+dtm4 <- DocumentTermMatrix(docs4)
+
+#get all keywords in at least 50 movies
+key_keys <- sort(findFreqTerms(dtm4, 50))
+key_keys
+```
+
+```{r}
+
+
+```
 
 2. Use parameter reduction and regression via LASSO to get a certain number of covariates and see which covariates impact the most to the revenue.
 
