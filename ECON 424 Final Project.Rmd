@@ -116,6 +116,7 @@ prod_comp <- clean_data$production_companies
 docs <- Corpus(VectorSource(prod_comp))
 # Remove "-" from the name since it is the splitter symbol of the data
 docs <- tm_map(docs, to_another, "Metro-Goldwyn-Mayer", "Metro_Goldwyn_Mayer")
+docs <- tm_map(docs, to_another, "no_production_companies", "")
 docs <- tm_map(docs, to_another, " ", "_")
 docs <- tm_map(docs, to_another, "-", " ")
 docs <- tm_map(docs, stripWhitespace)
@@ -211,29 +212,157 @@ Take 10 highest coef and 10 lowest coef, then do interactions on them.
 
 ```{r}
 coef_sort <- sort(coef1[,1], decreasing = TRUE)[-1]
-coef_head <- head(coef_sort, 10)
-coef_tail <- tail(coef_sort, 10)
-int_vars <- c("p$screen_gems", "p$walt_disney_pictures", "p$paramount", "p$new_line_cinema", "p$columbia_pictures", "p$touchstone_pictures", "p$universal_pictures", "p$20th_century_fox", "p$tristar_pictures", "p$hollywood_pictures", "k$film_noir", "l$fa", "k$pro_wrestling", "l$ur", "k$lgbt")
+head(coef_sort, 10)
+tail(coef_sort, 10)
+```
 
+```{r}
+# top 10 of each
+key_pc2 <- sort(findFreqTerms(dtm, 200))
+key_gen2 <- sort(findFreqTerms(dtm2, 1215))
+key_cast2 <- sort(findFreqTerms(dtm3, 69))
+key_cast2 <- key_cast2[grepl('_', key_cast2)]
+key_keys2 <- sort(findFreqTerms(dtm4, 340))
+int_vars <- c(key_pc2, key_gen2, key_cast2, key_keys2)
 inact <- c()
 inact_name <- c()
-for(i in int_vars){
-  for (j in int_vars){
-    if (i < j){
-      v = rep(0, n)
-      var_name = paste(c(i,j), sep = ".")
-      for(k in 1:n){
-        v[k] = as.numeric(a[k]) * as.numeric(b[k])
-      }
-      inact <- cbind(inact, v)
-      inact_name <- c(inact_name, var_name)
-    }
+for(i in 1:(length(int_vars)-1)){
+  for (j in (i+1):length(int_vars)){
+    a = as.matrix(X[,int_vars[i]])
+    b = as.matrix(X[,int_vars[j]])
+    var_name = paste(int_vars[i],".",int_vars[j])
+    v = a*b
+    inact <- cbind(inact, v)
+    inact_name <- c(inact_name, var_name)
   }
 }
 
-df_inact = data.frame(inact, colnames = inact_name)
+df_inact = data.frame(inact)
+colnames(df_inact) <- inact_name
 ```
 
+
+```{r}
+X2 <- cbind(dtm[, key_pc], dtm2[, key_gen], dtm3[, key_cast], dtm4[, key_keys], dtm5[, key_lang], df_inact)
+y <- log(clean_data$revenue)
+model2 <- cv.glmnet(cbind(as.matrix(X2), budget = log(clean_data$budget)), y)
+coef2 <- coef(model2, s = "lambda.min")
+sort(coef2[,1], decreasing = TRUE)
+```
+
+
+
+```{r}
+coef_sort2 <- sort(coef2[,1], decreasing = TRUE)
+head(coef_sort2, 10)
+tail(coef_sort2, 10)
+```
+
+```{r}
+clean_data$year <- format(as.Date(clean_data$release_date), format = "%Y")
+clean_data$decades <- floor(as.numeric(clean_data$year) / 10) * 10
+df_list <- split(clean_data, clean_data$decades)
+```
+
+
+```{r}
+
+sub_key_pc_all <- c()
+
+for (df in df_list){
+  #### PRODUCTION COMPANIES
+  sub_prod_comp <- df$production_companies
+  spc <- paste(sub_prod_comp, collapse="-")
+  sub_docs <- Corpus(VectorSource(spc))
+  # Remove "-" from the name since it is the splitter symbol of the data
+  sub_docs <- tm_map(sub_docs, to_another, "Metro-Goldwyn-Mayer", "Metro_Goldwyn_Mayer")
+  sub_docs <- tm_map(sub_docs, to_another, "no_production_companies", "")
+  sub_docs <- tm_map(sub_docs, to_another, " ", "_")
+  sub_docs <- tm_map(sub_docs, to_another, "-", " ")
+  sub_docs <- tm_map(sub_docs, stripWhitespace)
+  # adding prefix p$ for production_companies
+  sub_docs <- tm_map(sub_docs, add_prefix, "p$")
+  sub_docs <- tm_map(sub_docs, to_another, " ", " p$")
+  sub_dtm <- DocumentTermMatrix(sub_docs)
+
+  #get top 10 production companies
+  sub_key_pc <- sort(findMostFreqTerms(sub_dtm, 10))
+  #print(sub_key_pc)
+  
+  #### GENRES
+  sub_genres <- df$genres
+  sg <- paste(sub_genres, collapse="-")
+  sub_docs2 <- Corpus(VectorSource(sg))
+  sub_docs2 <- tm_map(sub_docs2, to_another, " ", "_")
+  sub_docs2 <- tm_map(sub_docs2, to_another, "-", " ")
+  sub_docs2 <- tm_map(sub_docs2, stripWhitespace)
+  # adding prefix g$ for genres
+  sub_docs2 <- tm_map(sub_docs2, add_prefix, "g$")
+  sub_docs2 <- tm_map(sub_docs2, to_another, " ", " g$")
+  sub_dtm2 <- DocumentTermMatrix(sub_docs2)
+
+  #get top 10 genres
+  sub_key_gen <- sort(findMostFreqTerms(sub_dtm2, 10))
+  #sub_key_gen
+  
+  #### CREDITS
+  sub_casts <- df$credits
+  sc <- paste(sub_casts, collapse="-")
+  sub_docs3 <- Corpus(VectorSource(sc))
+  sub_docs3 <- tm_map(sub_docs3, to_another, " ", "_")
+  sub_docs3 <- tm_map(sub_docs3, to_another, "-", " ")
+  sub_docs3 <- tm_map(sub_docs3, stripWhitespace)
+  # adding prefix c$ for casts
+  sub_docs3 <- tm_map(sub_docs3, add_prefix, "c$")
+  sub_docs3 <- tm_map(sub_docs3, to_another, " ", " c$")
+  sub_dtm3 <- DocumentTermMatrix(sub_docs3)
+
+  #get top 10 casts
+  sub_key_cast <- sort(findMostFreqTerms(sub_dtm3, 10))
+
+  #remove single-word names
+  sub_key_cast <- sub_key_cast[grepl('_', sub_key_cast)]
+  #sub_key_cast
+  
+  #### KEYWORDS
+  sub_keywords <- df$keywords
+  sk <- paste(sub_keywords, collapse="-")
+  sub_docs4 <- Corpus(VectorSource(sk))
+  sub_docs4 <- tm_map(sub_docs4, to_another, " ", "_")
+  sub_docs4 <- tm_map(sub_docs4, to_another, "-", " ")
+  sub_docs4 <- tm_map(sub_docs4, stripWhitespace)
+  # adding prefix k$ for keywords
+  sub_docs4 <- tm_map(sub_docs4, add_prefix, "k$")
+  sub_docs4 <- tm_map(sub_docs4, to_another, " ", " k$")
+  sub_dtm4 <- DocumentTermMatrix(sub_docs4)
+
+  #gettop 10 keywords
+  sub_key_keys <- sort(findMostFreqTerms(sub_dtm4, 10))
+  #sub_key_keys
+  
+  #### ORIGINAL LANGUAGE
+  sub_og_lng <- df$original_language
+  sol <- paste(sub_og_lng, collapsse = "-")
+  sub_docs5 <- Corpus(VectorSource(sol))
+  # adding prefix l$ for language
+  sub_docs5 <- tm_map(sub_docs5, add_prefix, "l$")
+  sub_docs5 <- tm_map(sub_docs5, to_another, " ", " l$")
+  sub_dtm5 <- DocumentTermMatrix(sub_docs5)
+
+  #get all languages in at least 50 movies
+  sub_key_lang <- sort(findMostFreqTerms(sub_dtm5, 10))
+  #sub_key_lang
+  
+  X <- cbind(dtm[, key_pc], dtm2[, key_gen], dtm3[, key_cast], dtm4[, key_keys], dtm5[, key_lang])
+  y <- log(clean_data$revenue)
+  library(glmnet)
+  set.seed(424)
+  model1 <- cv.glmnet(cbind(as.matrix(X), budget = log(clean_data$budget)), y)
+  coef1 <- coef(model1, s = "lambda.min")
+  sort(coef1[,1], decreasing = TRUE)
+}
+
+```
 
 4. Get the words from step 3 and create interactions between them. Include these interactions as covariates in the regression.
 
