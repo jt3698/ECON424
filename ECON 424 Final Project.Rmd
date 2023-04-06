@@ -261,11 +261,11 @@ plot(model1_adj, xvar = "lambda")
 
 ```{r}
 # top 10 of each
-key_pc2 <- findMostFreqTerms(dtm, 10, INDEX = rep(1, each = n))
-key_gen2 <- findMostFreqTerms(dtm2, 10, INDEX = rep(1, each = n))
-key_cast2 <- findMostFreqTerms(dtm3, 10, INDEX = rep(1, each = n))
-key_cast2 <- key_cast2[grepl('_', key_cast2)]
-key_keys2 <- sort(findFreqTerms(dtm4, 340))
+key_pc2 <- names(findMostFreqTerms(dtm, 10, INDEX = rep(1, each = n))[[1]])
+key_gen2 <- names(findMostFreqTerms(dtm2, 10, INDEX = rep(1, each = n))[[1]])
+key_cast2 <- names(findMostFreqTerms(dtm3, 14, INDEX = rep(1, each = n))[[1]])
+key_cast2 <- key_cast2[grepl('_', key_cast2)] # 4 of them are single names
+key_keys2 <- names(findMostFreqTerms(dtm4, 10, INDEX = rep(1, each = n))[[1]])
 int_vars <- c(key_pc2, key_gen2, key_cast2, key_keys2)
 inact <- c()
 inact_name <- c()
@@ -286,19 +286,27 @@ colnames(df_inact) <- inact_name
 
 
 ```{r}
-X2 <- cbind(dtm[, key_pc], dtm2[, key_gen], dtm3[, key_cast], dtm4[, key_keys], dtm5[, key_lang], df_inact)
-y <- log(clean_data$revenue)
-model2 <- cv.glmnet(cbind(as.matrix(X2), budget = log(clean_data$budget)), y)
+
+X2 <- cbind(dtm[, key_pc], dtm2[, key_gen], 
+            dtm3[, key_cast], dtm4[, key_keys], 
+            dtm5[, key_lang], df_inact)
+model2 <- cv.glmnet(cbind(as.matrix(X2), 
+            budget = log(clean_data$budget)), y_adj)
 coef2 <- coef(model2, s = "lambda.min")
-sort(coef2[,1], decreasing = TRUE)
+sort(coef2[which(coef2 != 0),1], decreasing = TRUE)
+
 ```
 
 
 
 ```{r}
-coef_sort2 <- sort(coef2[,1], decreasing = TRUE)[-1]
-head(coef_sort2, 10)
-tail(coef_sort2, 10)
+ic2 <- coef2[c("(Intercept)"),1]
+paste("The intercept is ", ic2)
+paste("Top 10 variables that positively affect the revenue:")
+coef2_sort <- sort(coef2[,1], decreasing = TRUE)[-1]
+head(coef2_sort, 10)
+paste("Top 10 variables that negatively affects the revenue:")
+tail(coef2_sort, 10)
 ```
 
 ```{r}
@@ -354,6 +362,9 @@ for (df in df_list){
   sub_casts <- df$credits
   sub_docs3 <- Corpus(VectorSource(sub_casts))
   sub_docs3 <- tm_map(sub_docs3, to_another, " ", "_")
+  # deal with Korean names
+  sub_docs3 <- tm_map(sub_docs3, to_another, "_([[:alpha:]]+)-([[:lower:]]+)$", "_\\1_\\2")
+  sub_docs3 <- tm_map(sub_docs3, to_another, "_([[:alpha:]]+)-([[:lower:]]+)-", "_\\1_\\2-")
   sub_docs3 <- tm_map(sub_docs3, to_another, "-", " ")
   sub_docs3 <- tm_map(sub_docs3, stripWhitespace)
   # adding prefix c$ for casts
@@ -392,7 +403,7 @@ for (df in df_list){
   #sub_key_lang
   
   sub_X <- cbind(sub_dtm[, names(sub_key_pc[[1]])], sub_dtm2[, names(sub_key_gen[[1]])], sub_dtm3[, names(sub_key_cast[[1]])], sub_dtm4[, names(sub_key_keys[[1]])], sub_dtm5[, names(sub_key_lang[[1]])])
-  sub_y <- log(df$revenue)
+  sub_y <- log(df$revenue_adjusted)
   sub_model1 <- cv.glmnet(cbind(as.matrix(sub_X), budget = log(df$budget)), sub_y)
   sub_coef1 <- coef(sub_model1, s = "lambda.min")
   sub_coef_sort <- sort(sub_coef1[which(sub_coef1 != 0),1], decreasing = TRUE)
