@@ -94,6 +94,12 @@ plot(as.Date(clean_data$release_date), log(clean_data$revenue_adjusted),
      main = "Release Date vs. Adjusted Revenue")
 ```
 
+```{r}
+#library(imputeTS)
+#dataTS <- ts(data = clean_data$revenue_adjusted, frequency = 5)
+```
+
+
 ## Methods
 
 To answer the questions above, we will be doing these methods:
@@ -114,7 +120,7 @@ add_prefix <- content_transformer(add_pre)
 #### PRODUCTION COMPANIES
 prod_comp <- clean_data$production_companies
 docs <- Corpus(VectorSource(prod_comp))
-# Remove "-" from the name since it is the splitter symbol of the data
+# Remove "-" from the name since it is the separator of the data
 docs <- tm_map(docs, to_another, "Metro-Goldwyn-Mayer", "Metro_Goldwyn_Mayer")
 docs <- tm_map(docs, to_another, "no_production_companies", "")
 docs <- tm_map(docs, to_another, " ", "_")
@@ -125,7 +131,7 @@ docs <- tm_map(docs, add_prefix, "p$")
 docs <- tm_map(docs, to_another, " ", " p$")
 dtm <- DocumentTermMatrix(docs)
 
-#get production companies in least 50 movies
+#get production companies in at least 50 movies
 key_pc <- sort(findFreqTerms(dtm, 50))
 key_pc
 ```
@@ -148,10 +154,14 @@ key_gen
 ```
 
 ```{r}
+
 #### CREDITS
 casts <- clean_data$credits
 docs3 <- Corpus(VectorSource(casts))
 docs3 <- tm_map(docs3, to_another, " ", "_")
+# deal with Korean names
+docs3 <- tm_map(docs3, to_another, "_([[:alpha:]]+)-([[:lower:]]+)$", "_\\1_\\2")
+docs3 <- tm_map(docs3, to_another, "_([[:alpha:]]+)-([[:lower:]]+)-", "_\\1_\\2-")
 docs3 <- tm_map(docs3, to_another, "-", " ")
 docs3 <- tm_map(docs3, stripWhitespace)
 # adding prefix c$ for casts
@@ -162,7 +172,8 @@ dtm3 <- DocumentTermMatrix(docs3)
 #get all casts in at least 50 movies
 key_cast <- sort(findFreqTerms(dtm3, 50))
 
-#remove single-word names
+#hard to remove "-" from two-worded names separated by "-"
+#so we remove single-word names that comes from them
 key_cast <- key_cast[grepl('_', key_cast)]
 key_cast
 ```
@@ -199,28 +210,60 @@ key_lang
 ```
 
 ```{r}
-X <- cbind(dtm[, key_pc], dtm2[, key_gen], dtm3[, key_cast], dtm4[, key_keys], dtm5[, key_lang])
+X <- cbind(dtm[, key_pc], dtm2[, key_gen], 
+           dtm3[, key_cast], dtm4[, key_keys], 
+           dtm5[, key_lang])
 y <- log(clean_data$revenue)
+y_adj <- log(clean_data$revenue_adjusted)
+```
+
+```{r}
 library(glmnet)
 set.seed(424)
 model1 <- cv.glmnet(cbind(as.matrix(X), budget = log(clean_data$budget)), y)
 coef1 <- coef(model1, s = "lambda.min")
-sort(coef1[,1], decreasing = TRUE)
+length(coef1[which(coef1 != 0),])
+sort(coef1[which(coef1 != 0),1], decreasing = TRUE)
 ```
 
-Take 10 highest coef and 10 lowest coef, then do interactions on them.
-
 ```{r}
+coef1[c("(Intercept)"),1]
 coef_sort <- sort(coef1[,1], decreasing = TRUE)[-1]
 head(coef_sort, 10)
 tail(coef_sort, 10)
 ```
 
 ```{r}
+plot(model1, xvar = "lambda")
+```
+
+
+```{r}
+model1_adj <- cv.glmnet(cbind(as.matrix(X), budget = log(clean_data$budget)), y_adj)
+coef1_adj <- coef(model1_adj, s = "lambda.min")
+length(coef1_adj[which(coef1_adj != 0),])
+sort(coef1_adj[which(coef1_adj != 0),1], decreasing = TRUE)
+```
+
+```{r}
+ic1 <- coef1_adj[c("(Intercept)"),1]
+paste("The intercept is ", ic1)
+paste("Top 10 variables that positively affect the revenue:")
+coef1_adj_sort <- sort(coef1_adj[,1], decreasing = TRUE)[-1]
+head(coef1_adj_sort, 10)
+paste("Top 10 variables that negatively affects the revenue:")
+tail(coef1_adj_sort, 10)
+```
+
+```{r}
+plot(model1_adj, xvar = "lambda")
+```
+
+```{r}
 # top 10 of each
-key_pc2 <- sort(findFreqTerms(dtm, 200))
-key_gen2 <- sort(findFreqTerms(dtm2, 1215))
-key_cast2 <- sort(findFreqTerms(dtm3, 69))
+key_pc2 <- findMostFreqTerms(dtm, 10, INDEX = rep(1, each = n))
+key_gen2 <- findMostFreqTerms(dtm2, 10, INDEX = rep(1, each = n))
+key_cast2 <- findMostFreqTerms(dtm3, 10, INDEX = rep(1, each = n))
 key_cast2 <- key_cast2[grepl('_', key_cast2)]
 key_keys2 <- sort(findFreqTerms(dtm4, 340))
 int_vars <- c(key_pc2, key_gen2, key_cast2, key_keys2)
@@ -253,9 +296,13 @@ sort(coef2[,1], decreasing = TRUE)
 
 
 ```{r}
-coef_sort2 <- sort(coef2[,1], decreasing = TRUE)
+coef_sort2 <- sort(coef2[,1], decreasing = TRUE)[-1]
 head(coef_sort2, 10)
 tail(coef_sort2, 10)
+```
+
+```{r}
+plot(model2, xvar = "lambda")
 ```
 
 ```{r}
