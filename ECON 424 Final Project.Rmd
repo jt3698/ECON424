@@ -492,8 +492,6 @@ for (df in df_list){
   
 }
 
-#coefs
-
 ```
 
 
