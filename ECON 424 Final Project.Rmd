@@ -21,13 +21,11 @@ opts_chunk$set(tidy.opts=list(width.cutoff=60), tidy = TRUE)
 
 For this project, these are the questions that we will be answering:
 
-1. Without any interactions, which covariate(s) affect revenue the most?
+1. Without any interactions, which covariate(s) affect revenue the most? Are there any certain genres, actors, or keywords that affect revenue the most?
 
-2. Are there any certain genres, actors, or keywords that affect revenue the most?
+2. If we do interactions between genres, actors, and keywords, are there any particular combination(s) that affect revenue the most?
 
-3. If we do interactions between genres, actors, and keywords, are there any particular combination(s) that affect revenue the most?
-
-4. Do people’s preferences on movie genres and actors change over the years/decades?
+3. Do people’s preferences on movie genres and actors change over the decades?
 
 ## Data
 
@@ -331,6 +329,8 @@ From the result above, we can see that the top variables with a positive correla
 
 On the other hand, the top variables with negative correlation towards the revenue come from diverse terms. For instance, one of the genres there is 'documentary'. The number of people who are interested in watching documentary movies is probably not large. This might be why documentary movies might not get a lot of revenue. There are also several language terms (Urdu, Farsi, and Estonian). It looks like the movies with these languages are not popular and thus the revenue is low.
 
+In order to interpret this model, we need to transform the revenue back from the log transformation. Thus, all coefficients will become exponents with base e, and these variables will become multipliers to the intercept in the model. For example, the movies with Screen Gems will generate $e^{2.691183} = 14.74911$ times more than the movies without Screen Gems, with all the other variables unchanged. If the movie does not contain any of the terms in the model, the movie is expected to have a revenue based on the intercept, which is $e^{12.6124353194507} = 300269.4$ US dollars.
+
 ### Model with interactions
 
 To improve the model more, we want to include interactions between terms in the model. Since it is too much to interact with all of the terms that we have, we will get the top 10 terms from each column and interact with them with each other to make a pair of terms. We do not include the original_language column in the interaction since most of the movies' original language is English. So, we have 40 terms to be paired with each other, giving us 780 interaction variables.
@@ -368,7 +368,10 @@ X2 <- cbind(dtm[, key_pc], dtm2[, key_gen],
             dtm5[, key_lang], df_inact)
 model2 <- cv.glmnet(as.matrix(X2), y_adj)
 plot(model2, xvar = "lambda")
+log(model2$lambda.min)
 ```
+
+From the plot above, we can see that based on the cross-validation, the lowest MSE is reached when log lambda is -4.479814.
 
 ```{r}
 coef2 <- coef(model2, s = "lambda.min")
@@ -378,7 +381,7 @@ length(coef2[which(coef2 != 0),][-1]) # -1 to exclude intercept
 # sort(coef2[which(coef2 != 0),1], decreasing = TRUE)
 ```
 
-From 1269 variables, we have 674 variables in our model with interactions. Below is the intercept of the model, the top 10 variables that positively affect revenue, and the top 10 variables that negatively affect revenue.
+From 1269 variables, we have 710 variables in our model with interactions. Below is the intercept of the model, the top 10 variables that positively affect revenue, and the top 10 variables that negatively affect revenue.
 
 ```{r}
 ic2 <- coef2[c("(Intercept)"),1]
@@ -399,8 +402,6 @@ On the other hand, there are a lot of interaction variables among the top variab
 Next, we will try to see which terms are included in the model (without interactions) when we split the data set into decades.
 
 ```{r}
-
-coefs <- c()
 
 for (df in df_list){
   #### PRODUCTION COMPANIES
@@ -485,7 +486,6 @@ for (df in df_list){
   sub_model1 <- cv.glmnet(cbind(as.matrix(sub_X), budget = log(df$budget)), sub_y)
   sub_coef1 <- coef(sub_model1, s = "lambda.min")
   sub_coef_sort <- sort(sub_coef1[which(sub_coef1 != 0),1], decreasing = TRUE)
-  coefs <- c(coefs, sub_coef_sort)
   
   print(df$decades[1])
   print(sub_coef_sort)
@@ -494,34 +494,33 @@ for (df in df_list){
 
 ```
 
-1920s
-We see that in the 1920s, the strongest indicators that a movie is successful are 'music', 'world war 1', 'based_on_novel_or_book' 'charles_chaplin_productions'. Movies about World War 1 is a particularly interesting one because it would be then that movies were being made about the war that just ended about a decade prior, and it was a popular sub-genre.
+#### 1920s
+We see that in the 1920s, the strongest indicators that a movie is successful are 'Music', 'World War 1', 'Based on novel or book' 'Charles Chaplin Productions'. Movies about World War 1 is a particularly interesting one because it would be then that movies were being made about the war that just ended about a decade prior, and it was a popular sub-genre.
 
-1930s
+#### 1930s
 We see that in the 1930s, movies with Irving Bacon were very popular. Irving Bacon appeared in 500 movies throughout his life but he was most active in the 1930s and 1940s. The model seems to suggest that he was in a lot of movies that generated high revenue.
 
-1940s
+#### 1940s
 We see that in the 1940s, it seems that family movies were particularly favored in this decade. We also have our first notice of Disney as an indicator. The 1940s were a part of the Golden Age of Disney and their movies were performing well.
 
-1950s
+#### 1950s
 Once again we see that Disney movies continued to be popular. Movies that told epic stories were also popular. We noticed the movie Ben-Hur which was released in 1959 as a particularly strong example of this. Adjusted for inflation, the movie has made approximately 180 million USD at the box office.
 
-1960s
+#### 1960s
 We can see varying popular indicators in the 1960s. We note a few notable ones here. Western movies were popular and John Wayne who was essentially an icon of the genre was also in movies that were very successful. Japanese movies were also increasing in popularity in that decade.
 
-1970s
+#### 1970s
 In the 1970s, most of the top indicators of a movie's success were the production companies producing the movies.
 
-1980s
+#### 1980s
 The 1980s continued the popularity of big production companies. It was also a good decade for Sylvester Stallone as there were several Rocky movies that performed particularly well.
 
-1990s - 2020s
+#### 1990s - 2020s
 We see that the dominating indicator for these decades were mostly production companies.
 
-1. Most production companies affect the revenue positively, while some of the non-popular languages and genres affect the revenue negatively, something like that.
+## Summary
 
-2. In our analysis of the model with interactions, we could not find a satisfactory generalized conclusion. However, we did find a few interesting interactions which suggested some aspects that are open for moviemakers to interpret and discuss further.
+From our project, we see that the model without interactions shows that most production companies affect the revenue positively, while some of the non-popular languages and genres affect the revenue negatively. On the other hand, in our analysis of the model with interactions, we could not find a satisfactory generalized conclusion. However, we did find a few interesting interactions which suggested some aspects that are open for moviemakers to interpret and discuss further. 
 
-3. Do people’s preferences for movie genres and actors change over the years/decades?
 From the analysis of the different decades above, we see that people's preferences mostly change over time. However, in recent times we see that big production companies have been consistently performing well at the box office. Another interesting indicator we notice is that movies that were based on a novel or book have consistently been a positive indicator even since the 1920s.
 
