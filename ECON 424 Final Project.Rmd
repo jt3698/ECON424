@@ -37,7 +37,7 @@ In this project, we will be using the Movies dataset from Kaggle: https://www.ka
 data <- read.csv("./movies.csv")
 ```
 
-Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. We are only keeping released movies above 40 minutes as we are not including short movies in the data. This is based on the definition from the Academy of Motion Picture Arts and Sciences, where they define a short film as "an original motion picture that has a running time of 40 minutes or less, including all credits". We also do not include the movies with runtime of value 999. There might also be duplicates in the data, so we need to remove duplicates as well. Since people can add random movies into this database, we try as best as we can to filter those out. To make sure that a movie is legitimate, we filter the movies that do not have any genres, production companies, and credits (all three are empty values).
+Before we do some analysis, we will clean the data. First, we will remove unnecessary columns and also data with zero revenues. We are only keeping released movies above 40 minutes as we are not including short movies in the data. This is based on the definition from the Academy of Motion Picture Arts and Sciences, which define a short film as "an original motion picture that has a running time of 40 minutes or less, including all credits". We also do not include movies with a runtime of value 999. There might also be duplicates in the data, so we need to remove duplicates as well. Since people can add random movies to this database, we try as best as we can to filter those out. To make sure that a movie is legitimate, we filter the movies that do not have any genres, production companies, and credits (all three are empty values).
 
 ```{r}
 # Only movies that has revenue, is released, and more than 40 minutes long
@@ -156,7 +156,7 @@ plot(as.Date(clean_data$release_date), log(clean_data$revenue_adjusted),
      main = "Release Date vs. Adjusted Revenue")
 ```
 
-Based on the histogram above, we can see that the distribution of the movies are not equal across time. There are more recent movies in the dataset than the older movies. Also, from the scatterplot above, it is visible that the variance of the data changes over time. This shows that our data is non-stationary. In addition, we do not see a lot of data points in the early decades, and not a lot of them have low revenues. Since this is a problem, we do not use time as a variable in our model. We do not change the distribution of the data since it is better to have more data on recent decades. This gives us a notion of weights on the data, with having more movies closer to the present.
+Based on the histogram above, we can see that the distribution of the movies is not equal across time. There are more recent movies in the dataset than older movies. Also, from the scatterplot above, it is visible that the variance of the data changes over time. This shows that our data is non-stationary. In addition, we do not see a lot of data points in the early decades, and not a lot of them have low revenues. Since this is a problem, we do not use time as a variable in our model. We do not change the distribution of the data since it is better to have more data on recent decades. This gives us a notion of weights on the data, with more movies closer to the present.
 
 Other than that, note that the data cleaning process is not perfect. Since the data source is publicly available to be added, there are some made-up data points in the raw data. We cleaned it as best as we could, but there is no guarantee on whether there are still some made-up data in this dataset.
 
@@ -166,7 +166,7 @@ To answer the questions above, we will create some models using LASSO method via
 
 ### Model without interactions
 
-To build the model, we will have to do text analysis on the texts first. There are five columns which has text variables: production_companies, genres, credits, keywords, and original_language. The terms that we are using from these columns are separated by dashes ("-"). Using this information, we will separate these text columns into a sparse matrix full of terms. For each document, the term will be equal to 1 if it appears on that document, and 0 if it does not appear. After getting each term separated, we added single letter prefixes with "$" on the terms to be able to tell which column the terms come from. Then, we filter the sparse matrix so that only terms that appear in at least 50 movies is included to be in the model. 
+To build the model, we will have to do a text analysis on the texts first. There are five columns which have text variables: production_companies, genres, credits, keywords, and original_language. The terms that we are using from these columns are separated by dashes ("-"). Using this information, we will separate these text columns into a sparse matrix full of terms. For each document, the term will be equal to 1 if it appears on that document, and 0 if it does not appear. After getting each term separated, we added single-letter prefixes with "$" on the terms to be able to tell which column the terms come from. Then, we filter the sparse matrix so that only terms that appear in at least 50 movies are included to be in the model. 
 
 ```{r}
 library(pdftools)
@@ -182,7 +182,7 @@ add_pre <- function(x, pre) {
 add_prefix <- content_transformer(add_pre)
 ```
 
-For terms coming from production_companies column, we have to change "Metro-Goldwyn-Mayer" to "Metro_Goldwyn_Mayer" due to the name having dashes in it. This is the only company that appears in at least 50 movies that contains "-" in its name. We added "p$" to indicate production_companies terms. From here, we got a result of 71 production companies.
+For terms coming from the production_companies column, we have to change "Metro-Goldwyn-Mayer" to "Metro_Goldwyn_Mayer" due to the name having dashes in it. This is the only company that appears in at least 50 movies that contain "-" in its name. We added "p$" to indicate production_companies terms. From here, we got a result of 71 production companies.
 
 ```{r}
 
@@ -224,7 +224,7 @@ key_gen <- sort(findFreqTerms(dtm2, 0))
 key_gen
 ```
 
-For terms coming from credits column, there are a lot of names that contains a dash symbol. The names of Korean casts can be dealt with since they follow a regex pattern, as seen in the code. However, this does not cover all names. It is hard to clean this, so we decided to remove one-word names from the results. We added "c$" to indicate cast terms. From this column, we managed to get 67 terms.
+For terms coming from the credits column, there are a lot of names that contain a dash symbol. The names of Korean casts can be dealt with since they follow a regex pattern, as seen in the code. However, this does not cover all names. It is hard to clean this, so we decided to remove one-word names from the results. We added "c$" to indicate cast terms. From this column, we managed to get 67 terms.
 
 ```{r}
 
@@ -251,7 +251,7 @@ key_cast <- key_cast[grepl('_', key_cast)]
 key_cast
 ```
 
-For terms coming from keywords column, we added "k$" to indicate keyword terms. From this column, we managed to get 312 terms.
+For terms coming from the keywords column, we added "k$" to indicate keyword terms. From this column, we managed to get 312 terms.
 
 ```{r}
 #### KEYWORDS
@@ -270,7 +270,7 @@ key_keys <- sort(findFreqTerms(dtm4, 50))
 key_keys
 ```
 
-For terms coming from original_language column, we added "l$" to indicate language terms. From this column, we managed to get 20 terms.
+For terms coming from the original_language column, we added "l$" to indicate language terms. From this column, we managed to get 20 terms.
 
 ```{r}
 #### ORIGINAL LANGUAGE
@@ -286,7 +286,7 @@ key_lang <- sort(findFreqTerms(dtm5, 50))
 key_lang
 ```
 
-With all of the terms above combined, we managed to get a total of 489 terms. We used these terms as variables in our model, and include the budget_adjusted as a variable as well. Due to large values of budgets and revenues, we decided to use log transformation on both of these variables and do modelling with them.
+With all of the terms above combined, we managed to get a total of 489 terms. We used these terms as variables in our model, and include the budget_adjusted as a variable as well. Due to the large values of budgets and revenues, we decided to use log transformation on both of these variables and do modeling with them.
 
 ```{r}
 X <- cbind(dtm[, key_pc], dtm2[, key_gen], 
@@ -296,7 +296,7 @@ y_adj <- log(clean_data$revenue_adjusted)
 ```
 
 
-At first, we would like to include the budget column into the model. However, it turns out that 5,178 rows have either zero budget or unspecified amount. So, we decided to not include this column to the model.
+Originally, we would have liked to include the budget column in the model. However, it turns out that 5,178 rows have either zero budget or an unspecified amount. So, we decided to not include this column in the model.
 
 ```{r}
 library(glmnet)
@@ -315,7 +315,7 @@ length(coef1[which(coef1 != 0),][-1]) # -1 to exclude intercept
 # sort(coef1[which(coef1 != 0),1], decreasing = TRUE)
 ```
 
-From 489 variables, we have 429 variables in our model. Below are the intercept of the model, the top 10 variables that positively affect revenue, and top 10 variables that negatively affect revenue.
+From 489 variables, we have 429 variables in our model. Below is the intercept of the model, the top 10 variables that positively affect revenue, and the top 10 variables that negatively affect revenue.
 
 ```{r}
 ic1 <- coef1[c("(Intercept)"),1] 
@@ -323,17 +323,17 @@ paste("The intercept is ", ic1)
 coef1_sort <- sort(coef1[,1], decreasing = TRUE)[-1]
 # Top 10 variables that positively affect the revenue
 head(coef1_sort, 10)
-#Top 10 variables that negatively affects the revenue
+#Top 10 variables that negatively affect the revenue
 tail(coef1_sort, 10)
 ```
 
-From the result above, we can see that the top variables with positive correlation towards the revenue are all production companies. These production companies are all big companies or subsidiary of them. For example, Walt Disney Studios is one of the biggest animation production companies. Screen Gems and Columbia Pictures are both subsidiary of Sony Pictures, which is a really big production company.
+From the result above, we can see that the top variables with a positive correlation toward revenue are all production companies. These production companies are all big companies or subsidiaries of them. For example, Walt Disney Studios is one of the biggest animation production companies. Screen Gems and Columbia Pictures are both subsidiaries of Sony Pictures, which is a really big production company.
 
-On the other hand, the top variables with negative correlation towards the revenue comes from diverse terms. For instance, one of the genres there is documentary. The amount of people who are interested in watching documentary movies are not large. This might be why documentary movies might not get a lot of revenue. There are also several language terms (Urdu, Farsi, and Estonian). It looks like the movies with these languages are not popular and thus the revenue is low.
+On the other hand, the top variables with negative correlation towards the revenue come from diverse terms. For instance, one of the genres there is 'documentary'. The number of people who are interested in watching documentary movies is probably not large. This might be why documentary movies might not get a lot of revenue. There are also several language terms (Urdu, Farsi, and Estonian). It looks like the movies with these languages are not popular and thus the revenue is low.
 
 ### Model with interactions
 
-To improve the model more, we want to include interactions between terms in the model. Since it is too much to interact all of the terms that we have, we will get top 10 terms from each column and interact them with each other to make a pair of terms. We do not include the original_language column in the interaction since most of the movies' original language is English. So, we have 40 terms to be paired with each other, giving us 780 interaction variables.
+To improve the model more, we want to include interactions between terms in the model. Since it is too much to interact with all of the terms that we have, we will get the top 10 terms from each column and interact with them with each other to make a pair of terms. We do not include the original_language column in the interaction since most of the movies' original language is English. So, we have 40 terms to be paired with each other, giving us 780 interaction variables.
 
 ```{r}
 # top 10 of each
@@ -360,7 +360,7 @@ df_inact = data.frame(inact)
 colnames(df_inact) <- inact_name
 ```
 
-We add this 780 variables on top of the initial 489 variables in the first model, giving us 1269 variables for the second model.
+We add these 780 variables on top of the initial 489 variables in the first model, giving us 1269 variables for the second model.
 
 ```{r}
 X2 <- cbind(dtm[, key_pc], dtm2[, key_gen], 
@@ -378,7 +378,7 @@ length(coef2[which(coef2 != 0),][-1]) # -1 to exclude intercept
 # sort(coef2[which(coef2 != 0),1], decreasing = TRUE)
 ```
 
-From 1269 variables, we have 674 variables in our model with interactions. Below are the intercept of the model, the top 10 variables that positively affect revenue, and top 10 variables that negatively affect revenue.
+From 1269 variables, we have 674 variables in our model with interactions. Below is the intercept of the model, the top 10 variables that positively affect revenue, and the top 10 variables that negatively affect revenue.
 
 ```{r}
 ic2 <- coef2[c("(Intercept)"),1]
@@ -390,9 +390,9 @@ paste("Top 10 variables that negatively affects the revenue:")
 tail(coef2_sort, 10)
 ```
 
-From the results above, we notice that the top variables have changed from the first model. The top variables with positive correlation towards the revenue are mostly still production companies, except for one. This interaction between a cast "Robert De Niro" and a keyword "Woman Director" is really interesting. From our research on the internet, turns out that Robert De Niro only worked with 4 woman directors before, producing a total of 4 movies. The most popular movie from this interaction being "The Intern", with a revenue of nearly 200 million dollars.
+From the results above, we notice that the top variables have changed from the first model. The top variables with positive correlation towards the revenue are mostly still production companies, except for one. This interaction between a cast "Robert De Niro" and a keyword "Woman Director" is really interesting. From our research on the internet, turns out that Robert De Niro have only worked with 4 female directors before, producing a total of 4 movies. The most popular movie from this interaction being "The Intern", with a revenue of nearly 200 million dollars. This model suggests that Robert De Niro should be a part of more projects with female directors.
 
-On the other hand, there are a lot of interaction variables among the top variables with negative correlation towards the revenue. One of them being the casts "Nicolas Cage" and "Willem Dafoe". This is surprising because both actors are really popular. One of the movies that they played together is "Dog Eat Dog" which only gathers $80 of revenue based on the dataset. 
+On the other hand, there are a lot of interaction variables among the top variables with a negative correlation to the revenue. One of the interactions is the cast "Nicolas Cage" and "Willem Dafoe". This is surprising because both actors are really popular. One of the movies that they played together is "Dog Eat Dog" which only gathers $80 of revenue based on the dataset. This suggests that the movies that they were both cast in performed relatively badly compared to movies where they are performing without each other.
 
 ### Models with data separated into decades
 
@@ -494,5 +494,34 @@ for (df in df_list){
 
 ```
 
+1920s
+We see that in the 1920s, the strongest indicators that a movie is successful are 'music', 'world war 1', 'based_on_novel_or_book' 'charles_chaplin_productions'. Movies about World War 1 is a particularly interesting one because it would be then that movies were being made about the war that just ended about a decade prior, and it was a popular sub-genre.
 
+1930s
+We see that in the 1930s, movies with Irving Bacon were very popular. Irving Bacon appeared in 500 movies throughout his life but he was most active in the 1930s and 1940s. The model seems to suggest that he was in a lot of movies that generated high revenue.
+
+1940s
+We see that in the 1940s, it seems that family movies were particularly favored in this decade. We also have our first notice of Disney as an indicator. The 1940s were a part of the Golden Age of Disney and their movies were performing well.
+
+1950s
+Once again we see that Disney movies continued to be popular. Movies that told epic stories were also popular. We noticed the movie Ben-Hur which was released in 1959 as a particularly strong example of this. Adjusted for inflation, the movie has made approximately 180 million USD at the box office.
+
+1960s
+We can see varying popular indicators in the 1960s. We note a few notable ones here. Western movies were popular and John Wayne who was essentially an icon of the genre was also in movies that were very successful. Japanese movies were also increasing in popularity in that decade.
+
+1970s
+In the 1970s, most of the top indicators of a movie's success were the production companies producing the movies.
+
+1980s
+The 1980s continued the popularity of big production companies. It was also a good decade for Sylvester Stallone as there were several Rocky movies that performed particularly well.
+
+1990s - 2020s
+We see that the dominating indicator for these decades were mostly production companies.
+
+1. Most production companies affect the revenue positively, while some of the non-popular languages and genres affect the revenue negatively, something like that.
+
+2. In our analysis of the model with interactions, we could not find a satisfactory generalized conclusion. However, we did find a few interesting interactions which suggested some aspects that are open for moviemakers to interpret and discuss further.
+
+3. Do people’s preferences for movie genres and actors change over the years/decades?
+From the analysis of the different decades above, we see that people's preferences mostly change over time. However, in recent times we see that big production companies have been consistently performing well at the box office. Another interesting indicator we notice is that movies that were based on a novel or book have consistently been a positive indicator even since the 1920s.
 
